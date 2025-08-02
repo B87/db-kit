@@ -10,6 +10,21 @@ jobs:
     name: Test and Upload Coverage to Codacy
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -20,8 +35,19 @@ jobs:
           go-version: "^1.21"
           check-latest: true
 
+      - name: Install PostgreSQL client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
       - name: Verify dependencies
         run: go mod verify
+
+      - name: Verify PostgreSQL client tools
+        run: |
+          pg_dump --version
+          pg_restore --version
+          psql --version
 
       - name: Setup go-task
         uses: pnorton5432/setup-task@v1
@@ -33,6 +59,11 @@ jobs:
 
       - name: Test and Generate Coverage Report
         env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
           task push-coverage

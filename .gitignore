@@ -1,3 +1,10 @@
 tmp
 .task
 .env
+
+
+.cursor/
+.DS_Store
+CLAUDE.md
+.claude/
+.codacy/

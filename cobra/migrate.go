@@ -1,7 +1,10 @@
 package cobra
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -19,6 +22,14 @@ func init() {
 	migrateCmd.AddCommand(resetCmd)
 
 	createCmd.Flags().StringVarP(createtype, "type", "t", "sql", "Type of the migration")
+
+	// Add error handling flags to all migration commands
+	addErrorFlags(migrateCmd)
+	addErrorFlags(upCmd)
+	addErrorFlags(downCmd)
+	addErrorFlags(statusCmd)
+	addErrorFlags(createCmd)
+	addErrorFlags(resetCmd)
 }
 
 var migrateCmd = &cobra.Command{
@@ -33,20 +44,25 @@ var migrateCmd = &cobra.Command{
 }
 
 var upCmd = &cobra.Command{
-	Use: "up",
+	Use:   "up",
+	Short: "Migrate the database up",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		db, err := newDB()
 		if err != nil {
-			cmd.PrintErrf("Failed to connect to database: %v", err)
+			handleError(cmd, err, "connect")
 			return
 		}
 		defer db.Close()
 
-		err = db.Migrator.Up()
+		err = db.Migrator.Up(ctx)
 		if err != nil {
-			cmd.PrintErrf("Failed to migrate up: %v", err)
+			handleError(cmd, err, "migrate_up")
 			return
 		}
+		handleSuccess(cmd, "Migration up completed successfully", nil)
 	},
 }
 
@@ -54,20 +70,22 @@ var downCmd = &cobra.Command{
 	Use:   "down",
 	Short: "Migrate the database down",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		db, err := newDB()
 		if err != nil {
-			cmd.PrintErrf("Failed to connect to database: %v\n", err)
-			os.Exit(1)
+			handleError(cmd, err, "connect")
 			return
 		}
 		defer db.Close()
 
-		err = db.Migrator.Down()
+		err = db.Migrator.Down(ctx)
 		if err != nil {
-			cmd.PrintErrf("Failed to migrate down: %v\n", err)
-			os.Exit(1)
+			handleError(cmd, err, "migrate_down")
 			return
 		}
+		handleSuccess(cmd, "Migration down completed successfully", nil)
 	},
 }
 
@@ -75,7 +93,32 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show migration status",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 
+		db, err := newDB()
+		if err != nil {
+			handleError(cmd, err, "connect")
+			return
+		}
+		defer db.Close()
+
+		status, err := db.Migrator.Status(ctx)
+		if err != nil {
+			handleError(cmd, err, "migration_status")
+			return
+		}
+
+		// Format status information for output
+		statusInfo := map[string]interface{}{
+			"current_version": status.Current,
+			"latest_version":  status.Latest,
+			"applied_count":   status.Applied,
+			"pending_count":   status.Pending,
+			"migrations":      status.Migrations,
+		}
+
+		handleSuccess(cmd, "Migration status retrieved successfully", statusInfo)
 	},
 }
 
@@ -84,49 +127,49 @@ var createCmd = &cobra.Command{
 	Short: "Create a new migration file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		name := args[0]
 
 		db, err := newDB()
 		if err != nil {
-			cmd.PrintErrf("Failed to connect to database: %v\n", err)
-			os.Exit(1)
+			handleError(cmd, err, "connect")
 			return
 		}
 		defer db.Close()
 
-		err = db.Migrator.NewMigration(name, *createtype)
+		err = db.Migrator.NewMigration(ctx, name, *createtype)
 		if err != nil {
-			cmd.PrintErrf("Failed to create migration: %v\n", err)
-			os.Exit(1)
+			handleError(cmd, err, "create_migration")
 			return
 		}
+		handleSuccess(cmd, fmt.Sprintf("Migration '%s' created successfully", name), map[string]interface{}{
+			"migration_name": name,
+			"migration_type": *createtype,
+		})
 	},
 }
 
 var resetCmd = &cobra.Command{
 	Use:   "reset",
-	Short: "Reset the database (down + up)",
+	Short: "Reset the database (reset all migrations)",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		db, err := newDB()
 		if err != nil {
-			cmd.PrintErrf("Failed to connect to database: %v\n", err)
-			os.Exit(1)
+			handleError(cmd, err, "connect")
 			return
 		}
 		defer db.Close()
 
-		err = db.Migrator.Down()
+		err = db.Migrator.Reset(ctx)
 		if err != nil {
-			cmd.PrintErrf("Failed to migrate down: %v\n", err)
-			os.Exit(1)
+			handleError(cmd, err, "reset_migrations")
 			return
 		}
-
-		err = db.Migrator.Up()
-		if err != nil {
-			cmd.PrintErrf("Failed to migrate up: %v\n", err)
-			os.Exit(1)
-			return
-		}
+		handleSuccess(cmd, "Database reset completed successfully", nil)
 	},
 }

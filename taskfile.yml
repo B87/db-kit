@@ -8,45 +8,55 @@ env:
 
 tasks:
   setup:
+    desc: "Setup the project"
     cmds:
-      - mkdir -p $(pwd){{.TMPDIR}}
+      - mkdir -p {{.TMPDIR}}
+      - mkdir -p {{.TMPDIR}}/migrations
+      - mkdir -p {{.TMPDIR}}/backups
       - go install github.com/lukaszraczylo/semver-generator@latest
-      - pre-commit install -c ./config/.pre-commit-config.yaml
+
+  status:
+    desc: "Get the status of the database"
+    cmds:
+      - go run main.go status
 
   test:
+    desc: "Run the tests"
     cmds:
-      - go test -v -coverprofile={{.TMPDIR}}/cover.out ./...
+      - go test -coverprofile={{.TMPDIR}}/cover.out ./...
 
   push-coverage:
+    desc: "Push the coverage to Codacy"
     cmds:
       - bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r {{.TMPDIR}}/cover.out
 
   semver:
+    desc: "Generate a new semver version"
     cmds:
       - semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}'
 
   build:
+    desc: "Build the project"
     cmds:
       - go build -o {{.TMPDIR}}/db-kit main.go
 
   release:
-    deps: [build]
+    desc: "Release the project (interactive)"
+    deps: [build, test]
     cmds:
-      - git tag v$(semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}')
-      - git push origin main --tags
+      - ./scripts/release.sh
 
   migrate-up:
+    desc: "Migrate the database up"
     cmds:
       - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate up
 
   migrate-reset:
+    desc: "Reset the database"
     cmds:
       - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate reset
 
   migrate-down:
+    desc: "Migrate the database down"
     cmds:
       - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate down
-
-  migrate-create:
-    cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate create test
