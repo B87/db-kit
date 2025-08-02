@@ -5,6 +5,7 @@ dotenv: [".env"]
 env:
   TMPDIR: ./tmp
   TASK_TEMP_DIR: "{{.TMPDIR}}/.task"
+  GO: "CGO_ENABLED=0 go"
 
 tasks:
   setup:
@@ -17,12 +18,12 @@ tasks:
   status:
     desc: "Get the status of the database"
     cmds:
-      - go run main.go status
+      - CGO_ENABLED=0 go run main.go status
 
   test:
     desc: "Run the tests"
     cmds:
-      - go test -coverprofile={{.TMPDIR}}/cover.out ./...
+      - CGO_ENABLED=0 go test -coverprofile={{.TMPDIR}}/cover.out ./...
 
   push-coverage:
     desc: "Push the coverage to Codacy"
@@ -37,12 +38,12 @@ tasks:
   semver-install:
     desc: "Install the semver-generator"
     cmds:
-      - go install github.com/lukaszraczylo/semver-generator@latest
+      - CGO_ENABLED=0 go install github.com/lukaszraczylo/semver-generator@latest
 
   build:
     desc: "Build the project"
     cmds:
-      - go build -o {{.TMPDIR}}/db-kit main.go
+      - CGO_ENABLED=0 go build -o {{.TMPDIR}}/db-kit main.go
 
   release:
     desc: "Release the project (interactive)"
@@ -53,14 +54,14 @@ tasks:
   migrate-up:
     desc: "Migrate the database up"
     cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate up
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate up
 
   migrate-reset:
     desc: "Reset the database"
     cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate reset
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate reset
 
   migrate-down:
     desc: "Migrate the database down"
     cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate down
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate down
