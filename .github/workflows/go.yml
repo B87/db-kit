@@ -54,8 +54,14 @@ jobs:
         with:
           task-version: "3.40.0"
 
+      - name: Create necessary directories and setup environment
+        run: |
+          mkdir -p ./tmp
+          mkdir -p ./tmp/migrations
+          mkdir -p ./tmp/backups
+
       - name: Build
-        run: task setup && task build
+        run: task build
 
       - name: Test and Generate Coverage Report
         env:
