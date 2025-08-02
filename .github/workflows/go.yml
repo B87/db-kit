@@ -66,4 +66,5 @@ jobs:
           POSTGRES_DB: postgres
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
+          task test
           task push-coverage
