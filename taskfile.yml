@@ -13,7 +13,6 @@ tasks:
       - mkdir -p {{.TMPDIR}}
       - mkdir -p {{.TMPDIR}}/migrations
       - mkdir -p {{.TMPDIR}}/backups
-      - CGO_ENABLED=0 go install github.com/lukaszraczylo/semver-generator@latest
 
   status:
     desc: "Get the status of the database"
@@ -34,6 +33,11 @@ tasks:
     desc: "Generate a new semver version"
     cmds:
       - semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}'
+
+  semver-install:
+    desc: "Install the semver-generator"
+    cmds:
+      - go install github.com/lukaszraczylo/semver-generator@latest
 
   build:
     desc: "Build the project"
