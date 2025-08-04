@@ -92,7 +92,7 @@ var downCmd = &cobra.Command{
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show migration status",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -127,6 +127,11 @@ var createCmd = &cobra.Command{
 	Short: "Create a new migration file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			cmd.Help()
+			os.Exit(1)
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -154,7 +159,7 @@ var createCmd = &cobra.Command{
 var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset the database (reset all migrations)",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 

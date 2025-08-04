@@ -5,14 +5,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	_ "github.com/lib/pq"
 )
 
 // loadEnvFile loads environment variables from a .env file
@@ -227,16 +226,40 @@ func CreateTestDBWithEnv(t *testing.T) *DB {
 		t.Logf("No .env file found: %v", err)
 	}
 
+	// Create temporary directories for migrations and backups if not specified or if paths don't exist
+	tempDir := t.TempDir()
+	defaultMigrationsDir := filepath.Join(tempDir, "migrations")
+	defaultBackupsDir := filepath.Join(tempDir, "backups")
+
+	// Ensure the directories exist
+	if err := os.MkdirAll(defaultMigrationsDir, 0755); err != nil {
+		t.Logf("Warning: Failed to create default migrations directory: %v", err)
+	}
+	if err := os.MkdirAll(defaultBackupsDir, 0755); err != nil {
+		t.Logf("Warning: Failed to create default backups directory: %v", err)
+	}
+
+	// Get migrations and backups directories, use temp dirs as fallback
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" || !isValidDirectory(migrationsDir) {
+		migrationsDir = defaultMigrationsDir
+	}
+
+	backupsDir := os.Getenv("BACKUPS_DIR")
+	if backupsDir == "" || !isValidDirectory(backupsDir) {
+		backupsDir = defaultBackupsDir
+	}
+
 	// Create configuration from environment variables
 	config := Config{
-		Host:     os.Getenv("POSTGRES_HOST"),
+		Host:     getEnvOrDefault("POSTGRES_HOST", "localhost"),
 		Port:     getEnvInt("POSTGRES_PORT", 5432),
-		User:     os.Getenv("POSTGRES_USER"),
-		Password: os.Getenv("POSTGRES_PASSWORD"),
-		DBName:   os.Getenv("POSTGRES_DB"),
+		User:     getEnvOrDefault("POSTGRES_USER", "postgres"),
+		Password: getEnvOrDefault("POSTGRES_PASSWORD", "postgres"),
+		DBName:   getEnvOrDefault("POSTGRES_DB", "postgres"),
 
 		// SSL Configuration
-		SSLMode:     os.Getenv("POSTGRES_SSL_MODE"),
+		SSLMode:     getEnvOrDefault("POSTGRES_SSL_MODE", "disable"),
 		SSLCert:     os.Getenv("POSTGRES_SSL_CERT"),
 		SSLKey:      os.Getenv("POSTGRES_SSL_KEY"),
 		SSLRootCert: os.Getenv("POSTGRES_SSL_ROOT_CERT"),
@@ -256,20 +279,13 @@ func CreateTestDBWithEnv(t *testing.T) *DB {
 		RetryDelay:    getEnvDuration("POSTGRES_RETRY_DELAY", 100*time.Millisecond),
 		RetryMaxDelay: getEnvDuration("POSTGRES_RETRY_MAX_DELAY", 5*time.Second),
 
-		// Application Paths
-		MigrationsDir: os.Getenv("MIGRATIONS_DIR"),
-		BackupsDir:    os.Getenv("BACKUPS_DIR"),
-	}
+		// Application Paths - Use temp directories as fallback
+		MigrationsDir: migrationsDir,
+		BackupsDir:    backupsDir,
 
-	// Validate required fields
-	if config.Host == "" {
-		config.Host = "localhost"
-	}
-	if config.User == "" {
-		config.User = "postgres"
-	}
-	if config.DBName == "" {
-		config.DBName = "postgres"
+		// Logging
+		LogLevel: parseLogLevel(getEnvOrDefault("POSTGRES_LOG_LEVEL", "INFO")),
+		Logger:   slog.Default(),
 	}
 
 	// Log the configuration being used (without sensitive data)
@@ -279,6 +295,8 @@ func CreateTestDBWithEnv(t *testing.T) *DB {
 	t.Logf("  User: %s", config.User)
 	t.Logf("  Database: %s", config.DBName)
 	t.Logf("  SSL Mode: %s", config.SSLMode)
+	t.Logf("  Migrations Dir: %s", config.MigrationsDir)
+	t.Logf("  Backups Dir: %s", config.BackupsDir)
 
 	db, err := New(config)
 	if err != nil {
@@ -294,6 +312,34 @@ func CreateTestDBWithEnv(t *testing.T) *DB {
 }
 
 // Helper functions for environment variable parsing
+
+// getEnvOrDefault returns environment variable value or default if not set
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// isValidDirectory checks if a directory path exists and is accessible
+func isValidDirectory(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	// Check if path exists and is a directory
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return true
+	}
+
+	// Try to create the directory if it doesn't exist
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return false
+	}
+
+	return true
+}
+
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
@@ -384,4 +430,20 @@ func testLocalPostgreSQL(config Config, t *testing.T) bool {
 
 	t.Logf("Successfully connected to local PostgreSQL: %s", version)
 	return true
+}
+
+// parseLogLevel parses a string log level into slog.Level
+func parseLogLevel(level string) slog.Level {
+	switch strings.ToUpper(level) {
+	case "DEBUG":
+		return slog.LevelDebug
+	case "INFO":
+		return slog.LevelInfo
+	case "WARN", "WARNING":
+		return slog.LevelWarn
+	case "ERROR":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }

@@ -65,8 +65,8 @@ type ConstraintInfo struct {
 	DeleteRule        *string  `json:"delete_rule,omitempty" db:"delete_rule"`
 }
 
-// DatabaseInfo represents overall database information
-type DatabaseInfo struct {
+// Info represents overall database information
+type Info struct {
 	Name    string      `json:"name"`
 	Version string      `json:"version"`
 	Size    *int64      `json:"size,omitempty"`
@@ -75,8 +75,8 @@ type DatabaseInfo struct {
 }
 
 // GetDatabaseInfo retrieves comprehensive database information
-func (is *IntrospectionService) GetDatabaseInfo(ctx context.Context) (*DatabaseInfo, error) {
-	info := &DatabaseInfo{
+func (is *IntrospectionService) GetDatabaseInfo(ctx context.Context) (*Info, error) {
+	info := &Info{
 		Name: is.db.config.DBName,
 	}
 

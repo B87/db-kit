@@ -16,9 +16,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 )
 
+// DB represents a database connection
 type DB struct {
 	// Apply migrations to the database
 	Migrator Migrator
@@ -69,6 +69,7 @@ type Config struct {
 	BackupsDir    string // backup data path
 }
 
+// ConnectionString returns a connection string for the database
 func (c Config) ConnectionString() string {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
 		c.Host, c.Port, c.User, c.Password, c.DBName)
@@ -104,6 +105,7 @@ func (c Config) ConnectionString() string {
 	return connStr
 }
 
+// New creates a new database connection with the given configuration
 func New(config Config) (*DB, error) {
 	sqlxConn, err := sqlx.Connect("postgres", config.ConnectionString())
 	if err != nil {
@@ -159,6 +161,7 @@ func New(config Config) (*DB, error) {
 	return db, nil
 }
 
+// NewDefault creates a new database connection with default configuration
 func NewDefault() (*DB, error) {
 	port, err := strconv.Atoi(envOrDefault("POSTGRES_PORT", "5432"))
 	if err != nil {
@@ -539,22 +542,6 @@ func (d *DB) withRetry(ctx context.Context, operation func() error) error {
 	}
 
 	return NewRetryExhaustedError("database operation", retryConfig.Attempts, lastErr)
-}
-
-// parseLogLevel parses a string log level into slog.Level
-func parseLogLevel(level string) slog.Level {
-	switch strings.ToUpper(level) {
-	case "DEBUG":
-		return slog.LevelDebug
-	case "INFO":
-		return slog.LevelInfo
-	case "WARN", "WARNING":
-		return slog.LevelWarn
-	case "ERROR":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
 }
 
 // Backup creates a database backup using the configured Backuper
