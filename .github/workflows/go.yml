@@ -1,5 +1,9 @@
 name: Go Build and Test
 
+# Set minimal permissions for security
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -9,6 +13,21 @@ jobs:
   test-and-coverage:
     name: Test and Upload Coverage to Codacy
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: dbkit_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout Code
@@ -20,19 +39,38 @@ jobs:
           go-version: "^1.21"
           check-latest: true
 
+      - name: Install PostgreSQL client tools and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client build-essential
+
       - name: Verify dependencies
         run: go mod verify
 
+      - name: Verify PostgreSQL client tools
+        run: |
+          pg_dump --version
+          pg_restore --version
+          psql --version
+
       - name: Setup go-task
-        uses: pnorton5432/setup-task@v1
+        uses: rnorton5432/setup-task@eec4717ae80f02d1614a4fecfa4a55d507768696 # v1
         with:
           task-version: "3.40.0"
 
+      - name: Setup
+        run: task setup
+
       - name: Build
-        run: task setup && task build
+        run: task build
 
       - name: Test and Generate Coverage Report
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
+          # Load environment variables from .test.env file
+          if [ -f .test.env ]; then
+            export $(grep -v '^#' .test.env | xargs)
+          fi
+          task test
           task push-coverage

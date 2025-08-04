@@ -1,0 +1,319 @@
+package database
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log/slog"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// TestDatabase represents a test database instance
+type TestDatabase struct {
+	config  Config
+	isLocal bool
+}
+
+// NewTestDatabase creates a new test database, preferring existing PostgreSQL over embedded
+func NewTestDatabase(t *testing.T) *TestDatabase {
+
+	// Try different common PostgreSQL configurations
+	port, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
+	if err != nil {
+		port = 5432
+	}
+
+	// Parse additional configuration from environment
+	maxOpenConns, _ := strconv.Atoi(os.Getenv("POSTGRES_MAX_OPEN_CONNS"))
+	maxIdleConns, _ := strconv.Atoi(os.Getenv("POSTGRES_MAX_IDLE_CONNS"))
+	connMaxLifetime, _ := time.ParseDuration(os.Getenv("POSTGRES_CONN_MAX_LIFETIME"))
+	connMaxIdleTime, _ := time.ParseDuration(os.Getenv("POSTGRES_CONN_MAX_IDLE_TIME"))
+	connectTimeout, _ := time.ParseDuration(os.Getenv("POSTGRES_CONNECT_TIMEOUT"))
+	statementTimeout, _ := time.ParseDuration(os.Getenv("POSTGRES_STATEMENT_TIMEOUT"))
+	retryAttempts, _ := strconv.Atoi(os.Getenv("POSTGRES_RETRY_ATTEMPTS"))
+	retryDelay, _ := time.ParseDuration(os.Getenv("POSTGRES_RETRY_DELAY"))
+	retryMaxDelay, _ := time.ParseDuration(os.Getenv("POSTGRES_RETRY_MAX_DELAY"))
+
+	configs := []Config{
+		{
+			Host:     os.Getenv("POSTGRES_HOST"),
+			Port:     port,
+			User:     os.Getenv("POSTGRES_USER"),
+			Password: os.Getenv("POSTGRES_PASSWORD"),
+			DBName:   os.Getenv("POSTGRES_DB"),
+
+			// SSL Configuration
+			SSLMode:     os.Getenv("POSTGRES_SSL_MODE"),
+			SSLCert:     os.Getenv("POSTGRES_SSL_CERT"),
+			SSLKey:      os.Getenv("POSTGRES_SSL_KEY"),
+			SSLRootCert: os.Getenv("POSTGRES_SSL_ROOT_CERT"),
+
+			// Connection Pool Configuration
+			MaxOpenConns:    maxOpenConns,
+			MaxIdleConns:    maxIdleConns,
+			ConnMaxLifetime: connMaxLifetime,
+			ConnMaxIdleTime: connMaxIdleTime,
+
+			// Connection Timeouts
+			ConnectTimeout:   connectTimeout,
+			StatementTimeout: statementTimeout,
+
+			// Retry Configuration
+			RetryAttempts: retryAttempts,
+			RetryDelay:    retryDelay,
+			RetryMaxDelay: retryMaxDelay,
+
+			// Application Paths
+			MigrationsDir: os.Getenv("MIGRATIONS_DIR"),
+			BackupsDir:    os.Getenv("BACKUPS_DIR"),
+		},
+	}
+
+	for _, config := range configs {
+		if testLocalPostgreSQL(config, t) {
+			t.Logf("Using existing PostgreSQL at %s:%d with user '%s'", config.Host, config.Port, config.User)
+			return &TestDatabase{
+				config:  config,
+				isLocal: true,
+			}
+		}
+	}
+
+	t.Fatalf("No PostgreSQL instance found. Please ensure PostgreSQL is running on localhost:5432")
+	return nil
+}
+
+// GetConfig returns the database configuration
+func (td *TestDatabase) GetConfig() Config {
+	return td.config
+}
+
+// Close stops the test database if it's embedded
+func (td *TestDatabase) Close() {
+	// No cleanup needed for external PostgreSQL
+}
+
+// CreateTestDB creates a new DB instance with the test configuration
+func (td *TestDatabase) CreateTestDB(t *testing.T) *DB {
+	db, err := New(td.config)
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	return db
+}
+
+// CreateTestDBWithEnv creates a new DB instance using environment variables
+func CreateTestDBWithEnv(t *testing.T) *DB {
+
+	// Get migrations and backups directories, use temp dirs as fallback
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" || !isValidDirectory(migrationsDir) {
+		t.Fatalf("Migrations directory is not set or is not valid: %s", migrationsDir)
+	}
+
+	backupsDir := os.Getenv("BACKUPS_DIR")
+	if backupsDir == "" || !isValidDirectory(backupsDir) {
+		t.Fatalf("Backups directory is not set or is not valid: %s", backupsDir)
+	}
+
+	// Create configuration from environment variables
+	config := Config{
+		Host:     getEnvOrDefault("POSTGRES_HOST", "localhost"),
+		Port:     getEnvInt("POSTGRES_PORT", 5432),
+		User:     getEnvOrDefault("POSTGRES_USER", "postgres"),
+		Password: getEnvOrDefault("POSTGRES_PASSWORD", "postgres"),
+		DBName:   getEnvOrDefault("POSTGRES_DB", "postgres"),
+
+		// SSL Configuration
+		SSLMode:     getEnvOrDefault("POSTGRES_SSL_MODE", "disable"),
+		SSLCert:     os.Getenv("POSTGRES_SSL_CERT"),
+		SSLKey:      os.Getenv("POSTGRES_SSL_KEY"),
+		SSLRootCert: os.Getenv("POSTGRES_SSL_ROOT_CERT"),
+
+		// Connection Pool Configuration
+		MaxOpenConns:    getEnvInt("POSTGRES_MAX_OPEN_CONNS", 25),
+		MaxIdleConns:    getEnvInt("POSTGRES_MAX_IDLE_CONNS", 5),
+		ConnMaxLifetime: getEnvDuration("POSTGRES_CONN_MAX_LIFETIME", 5*time.Minute),
+		ConnMaxIdleTime: getEnvDuration("POSTGRES_CONN_MAX_IDLE_TIME", 1*time.Minute),
+
+		// Connection Timeouts
+		ConnectTimeout:   getEnvDuration("POSTGRES_CONNECT_TIMEOUT", 30*time.Second),
+		StatementTimeout: getEnvDuration("POSTGRES_STATEMENT_TIMEOUT", 30*time.Second),
+
+		// Retry Configuration
+		RetryAttempts: getEnvInt("POSTGRES_RETRY_ATTEMPTS", 3),
+		RetryDelay:    getEnvDuration("POSTGRES_RETRY_DELAY", 100*time.Millisecond),
+		RetryMaxDelay: getEnvDuration("POSTGRES_RETRY_MAX_DELAY", 5*time.Second),
+
+		// Application Paths - Use temp directories as fallback
+		MigrationsDir: migrationsDir,
+		BackupsDir:    backupsDir,
+
+		// Logging
+		LogLevel: parseLogLevel(getEnvOrDefault("POSTGRES_LOG_LEVEL", "INFO")),
+		Logger:   slog.Default(),
+	}
+
+	// Log the configuration being used (without sensitive data)
+	t.Logf("Attempting to connect to database:")
+	t.Logf("  Host: %s", config.Host)
+	t.Logf("  Port: %d", config.Port)
+	t.Logf("  User: %s", config.User)
+	t.Logf("  Database: %s", config.DBName)
+	t.Logf("  SSL Mode: %s", config.SSLMode)
+	t.Logf("  Migrations Dir: %s", config.MigrationsDir)
+	t.Logf("  Backups Dir: %s", config.BackupsDir)
+
+	db, err := New(config)
+	if err != nil {
+		t.Logf("Failed to create database with env config: %v", err)
+		t.Logf("This is expected if PostgreSQL is not running or not accessible")
+		t.Logf("You can:")
+		t.Logf("  1. Start PostgreSQL locally")
+		t.Logf("  2. Update your .env file with correct connection details")
+		t.Logf("  3. Use Docker: docker run --name postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres")
+		panic(err) // Re-panic to maintain the expected behavior
+	}
+	return db
+}
+
+// Helper functions for environment variable parsing
+
+// getEnvOrDefault returns environment variable value or default if not set
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// isValidDirectory checks if a directory path exists and is accessible
+func isValidDirectory(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	// Check if path exists and is a directory
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return true
+	}
+
+	// Try to create the directory if it doesn't exist
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return defaultValue
+}
+
+// CleanupTestTables removes test tables created during testing
+func (td *TestDatabase) CleanupTestTables(t *testing.T, db *DB) {
+	ctx := context.Background()
+
+	// List of test tables to clean up
+	testTables := []string{
+		"test_users",
+		"test_posts",
+		"test_transactions",
+		"test_methods",
+		"test_panic",
+		"test_context",
+		"test_isolation",
+	}
+
+	for _, table := range testTables {
+		_, err := db.db.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE", table))
+		if err != nil {
+			t.Logf("Warning: Failed to drop test table %s: %v", table, err)
+		}
+	}
+
+	// Clean up test indexes
+	testIndexes := []string{
+		"idx_test_users_name",
+		"idx_test_users_email",
+		"idx_test_posts_user_id",
+		"idx_test_posts_published",
+	}
+
+	for _, index := range testIndexes {
+		_, err := db.db.ExecContext(ctx, fmt.Sprintf("DROP INDEX IF EXISTS %s", index))
+		if err != nil {
+			t.Logf("Warning: Failed to drop test index %s: %v", index, err)
+		}
+	}
+}
+
+// testLocalPostgreSQL tests if a local PostgreSQL instance is available
+func testLocalPostgreSQL(config Config, t *testing.T) bool {
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		config.Host, config.Port, config.User, config.Password, config.DBName)
+
+	t.Logf("Testing connection to local PostgreSQL: %s", connStr)
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		t.Logf("Failed to open connection: %v", err)
+		return false
+	}
+	defer db.Close()
+
+	// Set a short timeout for the connection test
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Try to ping the database
+	if err := db.PingContext(ctx); err != nil {
+		t.Logf("Failed to ping database: %v", err)
+		return false
+	}
+
+	// Try a simple query to ensure it's working
+	var version string
+	err = db.QueryRowContext(ctx, "SELECT version()").Scan(&version)
+	if err != nil {
+		t.Logf("Failed to query database: %v", err)
+		return false
+	}
+
+	t.Logf("Successfully connected to local PostgreSQL: %s", version)
+	return true
+}
+
+// parseLogLevel parses a string log level into slog.Level
+func parseLogLevel(level string) slog.Level {
+	switch strings.ToUpper(level) {
+	case "DEBUG":
+		return slog.LevelDebug
+	case "INFO":
+		return slog.LevelInfo
+	case "WARN", "WARNING":
+		return slog.LevelWarn
+	case "ERROR":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}

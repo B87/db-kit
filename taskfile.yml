@@ -1,52 +1,74 @@
 version: "3"
 
-dotenv: [".env"]
+dotenv: [".env", ".test.env"]
 
 env:
   TMPDIR: ./tmp
   TASK_TEMP_DIR: "{{.TMPDIR}}/.task"
+  MIGRATIONS_DIR: "{{.TMPDIR}}/migrations"
+  BACKUPS_DIR: "{{.TMPDIR}}/backups"
+  GO: "CGO_ENABLED=0 go"
 
 tasks:
   setup:
+    desc: "Setup the project"
     cmds:
-      - mkdir -p $(pwd){{.TMPDIR}}
-      - go install github.com/lukaszraczylo/semver-generator@latest
-      - pre-commit install -c ./config/.pre-commit-config.yaml
+      - mkdir -p {{.TMPDIR}}
+      - mkdir -p {{.MIGRATIONS_DIR}}
+      - mkdir -p {{.BACKUPS_DIR}}
+
+  status:
+    desc: "Get the status of the database"
+    cmds:
+      - CGO_ENABLED=0 go run main.go status
 
   test:
+    desc: "Run the tests"
     cmds:
-      - go test -v -coverprofile={{.TMPDIR}}/cover.out ./...
+      - CGO_ENABLED=0 go test -coverprofile={{.TMPDIR}}/cover.out ./...
 
   push-coverage:
+    desc: "Push the coverage to Codacy"
     cmds:
       - bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r {{.TMPDIR}}/cover.out
 
   semver:
+    desc: "Generate a new semver version"
     cmds:
-      - semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}'
+      - semver-generator -c ./semver.yaml generate -l | awk '{print $2}'
+
+  semver-install:
+    desc: "Install the semver-generator"
+    cmds:
+      - CGO_ENABLED=0 go install github.com/lukaszraczylo/semver-generator@latest
 
   build:
+    desc: "Build the project"
     cmds:
-      - go build -o {{.TMPDIR}}/db-kit main.go
+      - CGO_ENABLED=0 go build -o {{.TMPDIR}}/db-kit main.go
 
   release:
-    deps: [build]
+    desc: "Release the project (interactive)"
+    deps: [build, test]
     cmds:
-      - git tag v$(semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}')
-      - git push origin main --tags
+      - ./scripts/release.sh
+
+  migrate-new:
+    desc: "Create a new migration"
+    cmds:
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} --migrations {{.MIGRATIONS_DIR}} migrate create {{.CLI_ARGS}}
 
   migrate-up:
+    desc: "Migrate the database up"
     cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate up
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} --migrations {{.MIGRATIONS_DIR}} migrate up
 
   migrate-reset:
+    desc: "Reset the database"
     cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate reset
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} --migrations {{.MIGRATIONS_DIR}} migrate reset
 
   migrate-down:
+    desc: "Migrate the database down"
     cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate down
-
-  migrate-create:
-    cmds:
-      - go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} migrate create test
+      - CGO_ENABLED=0 go run main.go --user {{.POSTGRES_USER}} --password {{.POSTGRES_PASSWORD}} --db {{.POSTGRES_DB}} --migrations {{.MIGRATIONS_DIR}} migrate down
