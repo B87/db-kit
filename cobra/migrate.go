@@ -34,7 +34,7 @@ func init() {
 
 var migrateCmd = &cobra.Command{
 	Use: "migrate",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		err := cmd.Help()
 		if err != nil {
 			cmd.PrintErrln(err)
@@ -46,7 +46,7 @@ var migrateCmd = &cobra.Command{
 var upCmd = &cobra.Command{
 	Use:   "up",
 	Short: "Migrate the database up",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -69,7 +69,7 @@ var upCmd = &cobra.Command{
 var downCmd = &cobra.Command{
 	Use:   "down",
 	Short: "Migrate the database down",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 

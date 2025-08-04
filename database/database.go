@@ -220,7 +220,7 @@ func NewDefault() (*DB, error) {
 
 		// Application paths
 		MigrationsDir: envOrDefault("MIGRATIONS_DIR", "../tmp/migrations"),
-		BackupsDir:    envOrDefault("DATA_DIR", "../tmp"),
+		BackupsDir:    envOrDefault("BACKUPS_DIR", "../tmp"),
 	}
 	return New(config)
 }

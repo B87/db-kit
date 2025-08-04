@@ -24,7 +24,7 @@ func TestMigrateCommands(t *testing.T) {
 	os.Setenv("POSTGRES_PASSWORD", "postgres")
 	os.Setenv("POSTGRES_DB", "postgres")
 	os.Setenv("MIGRATIONS_DIR", migrationsDir)
-	os.Setenv("DATA_DIR", tempDir)
+	os.Setenv("BACKUPS_DIR", tempDir)
 
 	defer func() {
 		os.Unsetenv("POSTGRES_HOST")
@@ -33,7 +33,7 @@ func TestMigrateCommands(t *testing.T) {
 		os.Unsetenv("POSTGRES_PASSWORD")
 		os.Unsetenv("POSTGRES_DB")
 		os.Unsetenv("MIGRATIONS_DIR")
-		os.Unsetenv("DATA_DIR")
+		os.Unsetenv("BACKUPS_DIR")
 	}()
 
 	tests := []struct {

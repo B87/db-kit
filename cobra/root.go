@@ -23,9 +23,10 @@ func newDB() (*database.DB, error) {
 	return database.NewDefault()
 }
 
+// DBCmd is the root command for the db-kit CLI
 var DBCmd = &cobra.Command{
 	Use: "db",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		err := cmd.Help()
 		if err != nil {
 			cmd.PrintErrln(err)
@@ -50,7 +51,7 @@ func init() {
 	defaultPassword := envOrDefault("POSTGRES_PASSWORD", "postgres")
 	defaultDB := envOrDefault("POSTGRES_DB", "dbkit")
 	defaultMigrations := envOrDefault("MIGRATIONS_DIR", "./tmp/migrations")
-	defaultBackups := envOrDefault("DATA_DIR", "./tmp/backups")
+	defaultBackups := envOrDefault("BACKUPS_DIR", "./tmp/backups")
 
 	host = DBCmd.PersistentFlags().String("host", defaultHost, "postgres host")
 	port = DBCmd.PersistentFlags().Int("port", defaultPort, "postgres port")
