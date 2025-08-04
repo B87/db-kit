@@ -33,7 +33,7 @@ tasks:
   semver:
     desc: "Generate a new semver version"
     cmds:
-      - semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}'
+      - semver-generator -c ./semver.yaml generate -l | awk '{print $2}'
 
   semver-install:
     desc: "Install the semver-generator"

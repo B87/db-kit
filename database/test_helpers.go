@@ -67,6 +67,9 @@ func findProjectRoot() string {
 		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
 			return current
 		}
+		if _, err := os.Stat(filepath.Join(current, ".test.env")); err == nil {
+			return current
+		}
 		if _, err := os.Stat(filepath.Join(current, ".env")); err == nil {
 			return current
 		}
@@ -116,14 +119,15 @@ type TestDatabase struct {
 
 // NewTestDatabase creates a new test database, preferring existing PostgreSQL over embedded
 func NewTestDatabase(t *testing.T) *TestDatabase {
+
 	// Try to load .env files if they exist (root first, then test-specific)
 	if err := loadEnvFileRobust(".env"); err != nil {
 		t.Logf("No .env file found: %v", err)
 	}
 
-	// Try to load test-specific env file
-	if err := loadEnvFileRobust("database/test.env"); err != nil {
-		t.Logf("No test.env file found: %v", err)
+	// Try to load .test.env files first (preferred for testing)
+	if err := loadEnvFileRobust(".test.env"); err != nil {
+		t.Logf("No .test.env file found: %v", err)
 	}
 
 	// Try different common PostgreSQL configurations
@@ -213,6 +217,11 @@ func (td *TestDatabase) CreateTestDB(t *testing.T) *DB {
 
 // CreateTestDBWithEnv creates a new DB instance using environment variables
 func CreateTestDBWithEnv(t *testing.T) *DB {
+	// Load environment variables from .test.env file first (preferred for testing)
+	if err := loadEnvFileRobust(".test.env"); err != nil {
+		t.Logf("No .test.env file found: %v", err)
+	}
+
 	// Load environment variables from .env file
 	if err := loadEnvFileRobust(".env"); err != nil {
 		t.Logf("No .env file found: %v", err)

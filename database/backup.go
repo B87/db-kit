@@ -11,7 +11,9 @@ import (
 
 // Backuper defines the interface for database backup operations
 type Backuper interface {
+	// Backup creates a database backup using default file path
 	Backup(ctx context.Context, config Config) error
+	// BackupToFile creates a database backup to a specific file path
 	BackupToFile(ctx context.Context, config Config, filePath string) error
 }
 

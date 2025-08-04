@@ -16,7 +16,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
-          POSTGRES_DB: postgres
+          POSTGRES_DB: dbkit_test
         ports:
           - 5432:5432
         options: >-
@@ -65,12 +65,12 @@ jobs:
 
       - name: Test and Generate Coverage Report
         env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
+          # Load environment variables from .test.env file
+          if [ -f .test.env ]; then
+            export $(grep -v '^#' .test.env | xargs)
+          fi
+
           task test
           task push-coverage
