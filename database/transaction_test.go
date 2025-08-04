@@ -103,13 +103,18 @@ func TestWithTransaction(t *testing.T) {
 			t.Errorf("Expected transaction to fail due to context timeout")
 		}
 
-		// Check if it's a DBError with TRANSACTION_ROLLBACK code
-		// This happens because the context timeout causes the rollback to also fail
+		// WithTransaction should return a DBError with TRANSACTION_FAILED code
+		// wrapping the original context.DeadlineExceeded error
 		var dbErr *DBError
 		if !errors.As(err, &dbErr) {
 			t.Errorf("Expected DBError, got: %v", err)
-		} else if dbErr.Code != ErrCodeTransactionRollback {
-			t.Errorf("Expected TRANSACTION_ROLLBACK error code, got: %s", dbErr.Code)
+		} else if dbErr.Code != ErrCodeTransactionFailed {
+			t.Errorf("Expected TRANSACTION_FAILED error code, got: %s", dbErr.Code)
+		}
+
+		// The underlying error should be context.DeadlineExceeded
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("Expected underlying error to be context.DeadlineExceeded, got: %v", errors.Unwrap(err))
 		}
 	})
 }

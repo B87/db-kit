@@ -58,7 +58,8 @@ func (d *DB) WithTransaction(ctx context.Context, fn TransactionFunc) error {
 				d.logger.Error("failed to rollback transaction",
 					slog.Any("original_error", err),
 					slog.Any("rollback_error", rollbackErr))
-				return WrapError(rollbackErr, ErrCodeTransactionRollback, "with_transaction", "failed to rollback transaction")
+				// Return the original error, not the rollback error
+				// The rollback failure is logged but shouldn't mask the original issue
 			}
 			return WrapError(err, ErrCodeTransactionFailed, "with_transaction", "transaction function failed")
 		}
@@ -112,7 +113,8 @@ func (d *DB) WithTransactionIsolation(ctx context.Context, isolation sql.Isolati
 				d.logger.Error("failed to rollback transaction",
 					slog.Any("original_error", err),
 					slog.Any("rollback_error", rollbackErr))
-				return WrapError(rollbackErr, ErrCodeTransactionRollback, "with_transaction_isolation", "failed to rollback transaction")
+				// Return the original error, not the rollback error
+				// The rollback failure is logged but shouldn't mask the original issue
 			}
 			return WrapError(err, ErrCodeTransactionFailed, "with_transaction_isolation", "transaction function failed")
 		}
