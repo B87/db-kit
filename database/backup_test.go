@@ -11,8 +11,8 @@ import (
 
 func TestBackupToFile(t *testing.T) {
 	// Set up the database
-	db, close := tearUp(t)
-	defer close()
+	db, closeDB := tearUp(t)
+	defer closeDB()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -45,8 +45,8 @@ func TestBackupToFile(t *testing.T) {
 
 func TestBackup(t *testing.T) {
 	// Set up the database
-	db, close := tearUp(t)
-	defer close()
+	db, closeDB := tearUp(t)
+	defer closeDB()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -88,8 +88,8 @@ func TestBackup(t *testing.T) {
 
 func TestRestore(t *testing.T) {
 	// Set up the database
-	db, close := tearUp(t)
-	defer close()
+	db, closeDB := tearUp(t)
+	defer closeDB()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -140,8 +140,8 @@ INSERT INTO test_restore_table (name) VALUES ('test');
 // TestPgDump tests the pgDump implementation directly
 func TestPgDump(t *testing.T) {
 	// Set up the database
-	db, close := tearUp(t)
-	defer close()
+	db, closeDB := tearUp(t)
+	defer closeDB()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -176,8 +176,8 @@ func TestPgDump(t *testing.T) {
 // TestPgRestore tests the pgRestore implementation directly
 func TestPgRestore(t *testing.T) {
 	// Set up the database
-	db, close := tearUp(t)
-	defer close()
+	db, closeDB := tearUp(t)
+	defer closeDB()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

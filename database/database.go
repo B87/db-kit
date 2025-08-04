@@ -32,6 +32,7 @@ type DB struct {
 	logger *slog.Logger
 }
 
+// Config represents the configuration for a database connection
 type Config struct {
 	Host     string
 	Port     int

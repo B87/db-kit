@@ -1,114 +1,16 @@
 package database
 
 import (
-	"bufio"
 	"context"
 	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
-
-// loadEnvFile loads environment variables from a .env file
-func loadEnvFile(filename string) error {
-	file, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		// Parse key=value pairs
-		if idx := strings.Index(line, "="); idx > 0 {
-			key := strings.TrimSpace(line[:idx])
-			value := strings.TrimSpace(line[idx+1:])
-
-			// Remove quotes if present
-			if len(value) >= 2 && (value[0] == '"' && value[len(value)-1] == '"' ||
-				value[0] == '\'' && value[len(value)-1] == '\'') {
-				value = value[1 : len(value)-1]
-			}
-
-			// Only set if not already set in environment
-			if os.Getenv(key) == "" {
-				os.Setenv(key, value)
-			}
-		}
-	}
-
-	return scanner.Err()
-}
-
-// findProjectRoot attempts to find the project root directory
-func findProjectRoot() string {
-	// Start from current directory and walk up
-	current, err := os.Getwd()
-	if err != nil {
-		return "."
-	}
-
-	// Look for common project root indicators
-	for {
-		// Check if this directory contains project root indicators
-		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
-			return current
-		}
-		if _, err := os.Stat(filepath.Join(current, ".test.env")); err == nil {
-			return current
-		}
-		if _, err := os.Stat(filepath.Join(current, ".env")); err == nil {
-			return current
-		}
-		if _, err := os.Stat(filepath.Join(current, "taskfile.yml")); err == nil {
-			return current
-		}
-
-		// Move up one directory
-		parent := filepath.Dir(current)
-		if parent == current {
-			// We've reached the filesystem root
-			break
-		}
-		current = parent
-	}
-
-	return "."
-}
-
-// loadEnvFileRobust attempts to load .env file from multiple possible locations
-func loadEnvFileRobust(filename string) error {
-	projectRoot := findProjectRoot()
-
-	// Try multiple possible paths
-	paths := []string{
-		filename,                             // Direct path
-		filepath.Join(projectRoot, filename), // Project root + filename
-		filepath.Join(".", filename),         // Current directory
-		filepath.Join("..", filename),        // Parent directory
-		filepath.Join("../..", filename),     // Grandparent directory
-	}
-
-	for _, path := range paths {
-		if err := loadEnvFile(path); err == nil {
-			return nil // Successfully loaded
-		}
-	}
-
-	return fmt.Errorf("could not find %s in any of the expected locations", filename)
-}
 
 // TestDatabase represents a test database instance
 type TestDatabase struct {
@@ -118,16 +20,6 @@ type TestDatabase struct {
 
 // NewTestDatabase creates a new test database, preferring existing PostgreSQL over embedded
 func NewTestDatabase(t *testing.T) *TestDatabase {
-
-	// Try to load .env files if they exist (root first, then test-specific)
-	if err := loadEnvFileRobust(".env"); err != nil {
-		t.Logf("No .env file found: %v", err)
-	}
-
-	// Try to load .test.env files first (preferred for testing)
-	if err := loadEnvFileRobust(".test.env"); err != nil {
-		t.Logf("No .test.env file found: %v", err)
-	}
 
 	// Try different common PostgreSQL configurations
 	port, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
@@ -216,15 +108,6 @@ func (td *TestDatabase) CreateTestDB(t *testing.T) *DB {
 
 // CreateTestDBWithEnv creates a new DB instance using environment variables
 func CreateTestDBWithEnv(t *testing.T) *DB {
-	// Load environment variables from .test.env file first (preferred for testing)
-	if err := loadEnvFileRobust(".test.env"); err != nil {
-		t.Logf("No .test.env file found: %v", err)
-	}
-
-	// Load environment variables from .env file
-	if err := loadEnvFileRobust(".env"); err != nil {
-		t.Logf("No .env file found: %v", err)
-	}
 
 	// Get migrations and backups directories, use temp dirs as fallback
 	migrationsDir := os.Getenv("MIGRATIONS_DIR")
