@@ -54,7 +54,7 @@ jobs:
           psql --version
 
       - name: Setup go-task
-        uses: rnorton5432/setup-task@eec4717 # v1
+        uses: rnorton5432/setup-task@eec4717ae80f02d1614a4fecfa4a55d507768696 # v1
         with:
           task-version: "3.40.0"
 
