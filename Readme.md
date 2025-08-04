@@ -4,12 +4,12 @@ A comprehensive Go library for PostgreSQL database management with embedded data
 
 ## Features
 
-- **Database Connection Management**: Robust connection pooling and retry logic
-- **Embedded PostgreSQL**: Optional embedded database for development and testing
-- **Migrations**: Goose-based migration system
-- **Backup & Restore**: Interface-based backup and restore with PostgreSQL client tools
-- **Testing Utilities**: Comprehensive test helpers and utilities
-- **CLI Tools**: Command-line interface for database operations
+  - **Database Connection Management**: Robust connection pooling and retry logic
+  - **Embedded PostgreSQL**: Optional embedded database for development and testing
+  - **Migrations**: Goose-based migration system
+  - **Backup & Restore**: Interface-based backup and restore with PostgreSQL client tools
+  - **Testing Utilities**: Comprehensive test helpers and utilities
+  - **CLI Tools**: Command-line interface for database operations
 
 ## Quick Start
 

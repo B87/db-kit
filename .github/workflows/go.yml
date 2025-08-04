@@ -1,5 +1,9 @@
 name: Go Build and Test
 
+# Set minimal permissions for security
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -50,7 +54,7 @@ jobs:
           psql --version
 
       - name: Setup go-task
-        uses: pnorton5432/setup-task@v1
+        uses: rnorton5432/setup-task@eec4717 # v1
         with:
           task-version: "3.40.0"
 
