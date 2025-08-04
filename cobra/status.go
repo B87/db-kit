@@ -23,7 +23,7 @@ var dbStatusCmd = &cobra.Command{
 - Database metadata (version, size, schemas)
 - Migration status
 - Connection pool statistics`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -49,6 +49,7 @@ var dbStatusCmd = &cobra.Command{
 	},
 }
 
+// DatabaseStatus represents the comprehensive status information for a database connection
 type DatabaseStatus struct {
 	Connection struct {
 		Host     string `json:"host"`
@@ -91,11 +92,14 @@ type DatabaseStatus struct {
 func getDatabaseStatus(ctx context.Context, databaseConn *database.DB) (*DatabaseStatus, error) {
 	status := &DatabaseStatus{}
 
+	// Get configuration from database connection
+	config := databaseConn.Config()
+
 	// Connection information
-	status.Connection.Host = *host
-	status.Connection.Port = *port
-	status.Connection.Database = *db
-	status.Connection.User = *user
+	status.Connection.Host = config.Host
+	status.Connection.Port = config.Port
+	status.Connection.Database = config.DBName
+	status.Connection.User = config.User
 
 	// Test connection
 	if err := databaseConn.Ping(ctx); err != nil {

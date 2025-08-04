@@ -86,14 +86,30 @@ func TestWithTransaction(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 
-		err := db.WithTransaction(ctx, func(tx *Transaction) error {
-			// Sleep longer than context timeout
-			time.Sleep(50 * time.Millisecond)
-			return nil
+		// Use a channel to signal when the context is cancelled
+		done := make(chan struct{})
+
+		err := db.WithTransaction(ctx, func(_ *Transaction) error {
+			// Wait for the context to be cancelled (timeout)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-done:
+				return nil
+			}
 		})
 
 		if err == nil {
 			t.Errorf("Expected transaction to fail due to context timeout")
+		}
+
+		// Check if it's a DBError with TRANSACTION_ROLLBACK code
+		// This happens because the context timeout causes the rollback to also fail
+		var dbErr *DBError
+		if !errors.As(err, &dbErr) {
+			t.Errorf("Expected DBError, got: %v", err)
+		} else if dbErr.Code != ErrCodeTransactionRollback {
+			t.Errorf("Expected TRANSACTION_ROLLBACK error code, got: %s", dbErr.Code)
 		}
 	})
 }

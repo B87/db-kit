@@ -80,6 +80,20 @@ check_branch() {
     print_success "On main branch"
 }
 
+# Function to validate semantic version format
+validate_semver() {
+    local version=$1
+
+    # Regex pattern for semantic versioning (x.y.z[-prerelease][+build])
+    # Matches: 1.0.0, 1.0.0-alpha, 1.0.0-alpha.1, 1.0.0+20130313144700, etc.
+    local semver_pattern='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+
+    if [[ ! $version =~ $semver_pattern ]]; then
+        return 1
+    fi
+    return 0
+}
+
 # Generate version
 generate_version() {
     print_info "Generating version..."
@@ -89,10 +103,30 @@ generate_version() {
         exit 1
     fi
 
-    VERSION=$(semver-generator -c ./config/semver.yaml generate -l | awk '{print $2}')
+    # Get raw output from semver-generator
+    local raw_output
+    raw_output=$(semver-generator -c ./config/semver.yaml generate -l 2>/dev/null)
 
+    if [ $? -ne 0 ]; then
+        print_error "Failed to execute semver-generator command"
+        exit 1
+    fi
+
+    # Extract version using awk (keeping the original logic as fallback)
+    VERSION=$(echo "$raw_output" | awk '{print $2}')
+
+    # Validate that version is not empty
     if [ -z "$VERSION" ]; then
-        print_error "Failed to generate version"
+        print_error "Failed to extract version from semver-generator output"
+        print_error "Raw output: $raw_output"
+        exit 1
+    fi
+
+    # Validate semantic version format
+    if ! validate_semver "$VERSION"; then
+        print_error "Invalid semantic version format: '$VERSION'"
+        print_error "Expected format: x.y.z[-prerelease][+build] (e.g., 1.0.0, 1.0.0-alpha, 1.0.0+20130313144700)"
+        print_error "Raw output from semver-generator: $raw_output"
         exit 1
     fi
 

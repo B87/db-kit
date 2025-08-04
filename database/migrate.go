@@ -146,7 +146,7 @@ func (migrator *GooseMigrator) Status(ctx context.Context) (*MigrationStatusResu
 		var dbVersion int64
 		var tstamp time.Time
 		err = migrator.db.QueryRowContext(ctx,
-			"SELECT version_id, tstamp FROM goose_db_version WHERE version_id = ?",
+			"SELECT version_id, tstamp FROM goose_db_version WHERE version_id = $1",
 			version).Scan(&dbVersion, &tstamp)
 
 		if err == nil {

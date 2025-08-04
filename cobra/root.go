@@ -1,3 +1,4 @@
+// Package cobra provides the command-line interface for db-kit using the cobra library.
 package cobra
 
 import (
@@ -46,7 +47,16 @@ func envOrDefault(key, defaultValue string) string {
 func init() {
 	// Get default values from environment variables
 	defaultHost := envOrDefault("POSTGRES_HOST", "localhost")
-	defaultPort, _ := strconv.Atoi(envOrDefault("POSTGRES_PORT", "5432"))
+
+	// Handle POSTGRES_PORT conversion with proper error handling
+	defaultPort := 5432 // Default fallback value
+	if portStr := envOrDefault("POSTGRES_PORT", "5432"); portStr != "5432" {
+		if port, err := strconv.Atoi(portStr); err == nil {
+			defaultPort = port
+		}
+		// If conversion fails, defaultPort remains 5432
+	}
+
 	defaultUser := envOrDefault("POSTGRES_USER", "postgres")
 	defaultPassword := envOrDefault("POSTGRES_PASSWORD", "postgres")
 	defaultDB := envOrDefault("POSTGRES_DB", "dbkit")

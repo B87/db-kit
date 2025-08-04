@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -107,15 +108,15 @@ func TestPrintHumanError(t *testing.T) {
 		printHumanError(cmd, errorOutput, false)
 
 		output := buf.String()
-		if !contains(output, "User-friendly message") {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower("User-friendly message")) {
 			t.Errorf("Expected user message in output")
 		}
 
-		if !contains(output, "CONNECTION_FAILED") {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower("CONNECTION_FAILED")) {
 			t.Errorf("Expected error code in output")
 		}
 
-		if !contains(output, "Check connection") {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower("Check connection")) {
 			t.Errorf("Expected suggestions in output")
 		}
 	})
@@ -137,15 +138,15 @@ func TestPrintHumanError(t *testing.T) {
 		printHumanError(cmd, errorOutput, true)
 
 		output := buf.String()
-		if !contains(output, "Operation: test_operation") {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower("Operation: test_operation")) {
 			t.Errorf("Expected operation in verbose output")
 		}
 
-		if !contains(output, "Context:") {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower("Context:")) {
 			t.Errorf("Expected context in verbose output")
 		}
 
-		if !contains(output, "Technical Details:") {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower("Technical Details:")) {
 			t.Errorf("Expected technical details in verbose output")
 		}
 	})
@@ -227,33 +228,4 @@ func TestAddErrorFlags(t *testing.T) {
 	if verboseFlag {
 		t.Errorf("Expected verbose flag default to be false")
 	}
-}
-
-// Helper function for string contains check (case-insensitive)
-func contains(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-
-	s = toLower(s)
-	substr = toLower(substr)
-
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
-func toLower(s string) string {
-	result := make([]byte, len(s))
-	for i, c := range []byte(s) {
-		if c >= 'A' && c <= 'Z' {
-			result[i] = c + 32
-		} else {
-			result[i] = c
-		}
-	}
-	return string(result)
 }

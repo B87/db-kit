@@ -235,6 +235,11 @@ func (d *DB) DB() *sqlx.DB {
 	return d.db
 }
 
+// Config returns the database configuration
+func (d *DB) Config() Config {
+	return d.config
+}
+
 // Introspection returns a new introspection service for this database
 func (d *DB) Introspection() *IntrospectionService {
 	return NewIntrospectionService(d)
