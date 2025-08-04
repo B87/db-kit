@@ -226,28 +226,15 @@ func CreateTestDBWithEnv(t *testing.T) *DB {
 		t.Logf("No .env file found: %v", err)
 	}
 
-	// Create temporary directories for migrations and backups if not specified or if paths don't exist
-	tempDir := t.TempDir()
-	defaultMigrationsDir := filepath.Join(tempDir, "migrations")
-	defaultBackupsDir := filepath.Join(tempDir, "backups")
-
-	// Ensure the directories exist
-	if err := os.MkdirAll(defaultMigrationsDir, 0755); err != nil {
-		t.Logf("Warning: Failed to create default migrations directory: %v", err)
-	}
-	if err := os.MkdirAll(defaultBackupsDir, 0755); err != nil {
-		t.Logf("Warning: Failed to create default backups directory: %v", err)
-	}
-
 	// Get migrations and backups directories, use temp dirs as fallback
 	migrationsDir := os.Getenv("MIGRATIONS_DIR")
 	if migrationsDir == "" || !isValidDirectory(migrationsDir) {
-		migrationsDir = defaultMigrationsDir
+		t.Fatalf("Migrations directory is not set or is not valid: %s", migrationsDir)
 	}
 
 	backupsDir := os.Getenv("BACKUPS_DIR")
 	if backupsDir == "" || !isValidDirectory(backupsDir) {
-		backupsDir = defaultBackupsDir
+		t.Fatalf("Backups directory is not set or is not valid: %s", backupsDir)
 	}
 
 	// Create configuration from environment variables
